@@ -1,1 +1,1 @@
-g++ *.cpp -lGL -lGLU -lglut -o planetas
+g++ *.cpp -lGL -lGLU -lglut -o planetas.out
