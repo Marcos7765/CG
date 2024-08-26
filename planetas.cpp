@@ -10,10 +10,11 @@ camera cam = {
 
 double renderPos[3] = {Sun.pos.x, Sun.pos.y, Sun.pos.z};
 
-#define STARTVEL 2.0
-#define CAMERA_ACCEL 5
+#define STARTVEL 0.5
+#define CAMERA_ACCEL 2.5
 //clarificando, cada tick equivale a 2^HOUR_TICK_2EXP horas
 #define HOUR_TICK_2EXP 2
+#define zfar 2000000./PROXIMITY_WEIGHT
 int hour_tick_2exp = HOUR_TICK_2EXP;
 float cameraVel = STARTVEL;
 
@@ -23,6 +24,13 @@ const double tickPeriod = 1/30;
 time_t lastTickTime;
 unsigned long int tick = 0;
 unsigned int tickMultiplier = 1;
+
+void solMaterial(void){
+   glDisable(GL_LIGHTING);
+   defaultMaterial();
+   GLfloat emission[] = {1.,1.,1., 1.};
+   glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emission);
+}
 
 void countTick(){
    time_t temp_time = std::time(NULL);
@@ -39,8 +47,65 @@ void countTick(){
 }
 
 void init(void) {
-   glClearColor (0.0, 0.0, 0.0, 0.0);
-   glShadeModel (GL_FLAT);
+   Sun.setMaterial = solMaterial;
+   glClearColor(0.0, 0.0, 0.0, 0.0);
+   glShadeModel(GL_SMOOTH);
+   glEnable(GL_TEXTURE_2D);
+	glEnable(GL_NORMALIZE);
+   
+
+   //aqui é a confusão pra decidir como modelar a luz do sol:
+   //6 luzes no +/- raio de cada eixo ou uma única luz no centro
+   //6 luzes é mais prox do sol como corpo extenso
+   //mas uma única luz dá as sombras que se espera
+
+   //foi decidido por usar uma só luz, manterei o código
+   //comentado por posterioridade (e porque eu sei que ninguém)
+   //leria ele no histórico de commit
+   GLfloat light_pos[][4] = {
+      {(GLfloat) (Sun.radius + 0.1), 0., 0., 1.},
+      {(GLfloat) (-Sun.radius - 0.1), 0., 0., 1.},
+      {0.,(GLfloat) (Sun.radius + 0.1), 0., 1.},
+      {0.,(GLfloat) (-Sun.radius - 0.1), 0., 1.},
+      {0.,0.,(GLfloat) (Sun.radius + 0.1), 1.},
+      {0.,0.,(GLfloat) (-Sun.radius - 0.1), 1.}
+   };
+   GLfloat light_values_ambient[] = {0.02, 0.02, 0.02, 1.};
+   GLfloat light_values_diffuse[] = {0.5, 0.5, 0.5, 1.};
+   GLfloat light_values_spec[] = {0.5, 0.5, 0.5, 1.};
+   
+   #define LIGHT_NUM 6
+   glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+   //glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
+   
+   //for (int i = 0; i<LIGHT_NUM; i++){
+   //glLightfv(GL_LIGHT0+i, GL_POSITION, light_pos[i]);
+   //glLightfv(GL_LIGHT0+i, GL_DIFFUSE, light_values_diffuse);
+   //glLightfv(GL_LIGHT0+i, GL_SPECULAR, light_values_spec);
+   //glEnable(GL_LIGHT0+i);
+   //}
+   
+   GLfloat teste[] = {0.,0.,0., 1.};
+   glLightfv(GL_LIGHT0, GL_POSITION, teste);
+   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_values_diffuse);
+   glLightfv(GL_LIGHT0, GL_SPECULAR, light_values_spec);
+   glLightModelfv(GL_LIGHT_MODEL_AMBIENT, light_values_ambient);
+   glEnable(GL_LIGHT0);
+
+   
+   glEnable(GL_LIGHTING);
+   glEnable(GL_CULL_FACE); //isso aqui salvou a sombra
+   glEnable(GL_DEPTH_TEST);
+   //glDepthRange(1.0, 10.);
+   //glDepthFunc(GL_LESS);
+   //glDepthMask(GL_TRUE);
+   //glDepthRangef(0.0f, 1.0f);
+   //glClearDepth(zfar);
+   
+   Sun.setup();
+   for (auto body : bodies){
+      (*body).setup();
+   }
    cam.up[0] = 0.;
    cam.up[1] = 0.;
    cam.up[2] = 1.;
@@ -86,12 +151,19 @@ void CelestialBody::render(){
    renderPos[0] += pos.x;
    renderPos[1] += pos.y;
    renderPos[2] += pos.z;
+
+   glPushMatrix();
+   int pedacos = 10 + (int) std::sqrt(radius)*5;
+   glBindTexture(GL_TEXTURE_2D, textureIndex);
+   setMaterial();
+   glRotated(rotationAngle, globalUp[0], globalUp[1], globalUp[2]);
+   criaSphere(radius, pedacos, pedacos);
+   glPopMatrix();
+   glEnable(GL_LIGHTING);
+
    for (auto body : orbiters){
       (*body).render();
    }
-   int pedacos = 10 + (int) std::sqrt(radius)*3;
-   glRotated(rotationAngle, globalUp[0], globalUp[1], globalUp[2]);
-   glutWireSphere(radius, pedacos, pedacos);  
    
    if (sphereCollision(renderPos, radius, cam.pos)){ //minimal effort pra evitar entrar nos planetas
       cam.pos[2] += radius;
@@ -115,33 +187,35 @@ void CelestialBody::updateVars(unsigned long int tick){
    };
 }
 
-void display(void)
-{
-   glClear(GL_COLOR_BUFFER_BIT);
-   glColor3f(1.0, 1.0, 1.0);
+void display(void){
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   glLoadIdentity();
+   gluLookAt(cam.pos[0], cam.pos[1], cam.pos[2], 0.0, 0.0, 0.0, cam.up[0], cam.up[1], cam.up[2]);
+   GLfloat teste[] = {0.,0.,0., 1.};
+   glLightfv(GL_LIGHT0, GL_POSITION, teste);
    glPushMatrix();
    renderPos[0] = Sun.pos.x;
    renderPos[1] = Sun.pos.y;
    renderPos[2] = Sun.pos.z;
    Sun.render();
    glPopMatrix();
-   glLoadIdentity();
-   gluLookAt(cam.pos[0], cam.pos[1], cam.pos[2], 0.0, 0.0, 0.0, cam.up[0], cam.up[1], cam.up[2]);
-   glutSwapBuffers();
+   glFlush();
 }
 
 void reshape (int w, int h){
    glViewport(0, 0, (GLsizei) w, (GLsizei) h); 
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
-   gluPerspective(60.0, (GLfloat) w/(GLfloat) h, 1.0, 100000.0);
+   gluPerspective(60.0, (GLfloat) w/(GLfloat) h, 1.0, zfar);
    glMatrixMode(GL_MODELVIEW);
    glLoadIdentity();
    gluLookAt(cam.pos[0], cam.pos[1], cam.pos[2], 0.0, 0.0, 0.0, cam.up[0], cam.up[1], cam.up[2]);
 }
 
 void keyboard (unsigned char key, int x, int y){
-   switch (key) {
+   //cansei de escrever uma constance do opengl e nn entender porque a tela trava quando testo dps
+   unsigned char filtered_key = ((key >= 65) && (key <= 90)) ? key+32 : key;
+   switch (filtered_key) {
       case 'a':
          cam.moveRight(-cameraVel);
          break;
@@ -193,7 +267,7 @@ void keyboard (unsigned char key, int x, int y){
 
 int main(int argc, char** argv){
    glutInit(&argc, argv);
-   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB); //placeholder
+   glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH); //placeholder
    glutInitWindowSize(500, 500); 
    glutInitWindowPosition(100, 100);
    glutCreateWindow(argv[0]);
