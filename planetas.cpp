@@ -153,11 +153,12 @@ void CelestialBody::render(){
    renderPos[2] += pos.z;
 
    glPushMatrix();
-   int pedacos = 10 + (int) std::sqrt(radius)*5;
+   //int pedacos = 10 + (int) std::sqrt(radius)*5;
    glBindTexture(GL_TEXTURE_2D, textureIndex);
    setMaterial();
    glRotated(rotationAngle, globalUp[0], globalUp[1], globalUp[2]);
-   criaSphere(radius, pedacos, pedacos);
+   glCallList(listIndex);
+   //criaSphere(radius, pedacos, pedacos);
    glPopMatrix();
    glEnable(GL_LIGHTING);
 
@@ -213,8 +214,8 @@ void reshape (int w, int h){
 }
 
 void keyboard (unsigned char key, int x, int y){
-   //cansei de escrever uma constance do opengl e nn entender porque a tela trava quando testo dps
-   unsigned char filtered_key = ((key >= 65) && (key <= 90)) ? key+32 : key;
+   //cansei de escrever uma constante do opengl e nn entender porque a câmera trava quando testo dps
+   unsigned char filtered_key = ((key <= 90) && (key >= 65)) ? key+32 : key;
    switch (filtered_key) {
       case 'a':
          cam.moveRight(-cameraVel);

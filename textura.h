@@ -5,4 +5,4 @@
 
 GLuint LoadTexture(const char * filename);
 
-void criaSphere(double radius, int stacks, int columns);
+GLuint criaSphere(double radius, int stacks, int columns);

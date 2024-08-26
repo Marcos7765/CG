@@ -62,6 +62,7 @@ class CelestialBody {
         void (*setMaterial)(void)=defaultMaterial;
         const char* textureFile;
         GLuint textureIndex;
+        GLuint listIndex;
     private:
         //valores internos usados pra poupar ops
         double translationAngle;
@@ -91,6 +92,8 @@ rotationPeriod{_rotationPeriod}, translationPeriod{_translationPeriod}, textureF
 
 void CelestialBody::setup(){
     textureIndex = LoadTexture(textureFile);
+    int pedacos = 10 + (int) std::sqrt(radius)*5;
+    listIndex = criaSphere(radius, pedacos, pedacos);
 }
 
 //daqui pra frente é inicialização dos corpos e um vector dos orbitantes

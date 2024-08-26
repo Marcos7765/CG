@@ -44,11 +44,16 @@ GLuint LoadTexture( const char * filename )
   return texture;
 }
 
-void criaSphere(double radius, int stacks, int columns) {
+GLuint criaSphere(double radius, int stacks, int columns) {
+    GLuint res;
     GLUquadric* quadObj = gluNewQuadric();
     gluQuadricDrawStyle(quadObj, GLU_FILL);
     gluQuadricNormals(quadObj, GLU_SMOOTH);
     gluQuadricTexture(quadObj, GL_TRUE);
+    res = glGenLists(1);
+    glNewList(res, GL_COMPILE);
     gluSphere(quadObj, radius, stacks, columns);
+    glEndList();
     gluDeleteQuadric(quadObj);
+    return res;
 }
